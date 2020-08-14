@@ -12,6 +12,7 @@ resource "aws_launch_configuration" "this" {
   security_groups             = var.security_groups
   associate_public_ip_address = var.associate_public_ip_address
   user_data                   = var.user_data
+  user_data_base64            = var.user_data_base64
   enable_monitoring           = var.enable_monitoring
   spot_price                  = var.spot_price
   placement_tenancy           = var.spot_price == "" ? var.placement_tenancy : ""
@@ -93,6 +94,7 @@ resource "aws_autoscaling_group" "this" {
   wait_for_capacity_timeout = var.wait_for_capacity_timeout
   protect_from_scale_in     = var.protect_from_scale_in
   service_linked_role_arn   = var.service_linked_role_arn
+  max_instance_lifetime     = var.max_instance_lifetime
 
   tags = concat(
     [
