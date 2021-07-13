@@ -2,15 +2,16 @@ locals {
   lc_name              = coalesce(var.lc_name, var.name)
   launch_configuration = var.create_lc ? aws_launch_configuration.this[0].name : var.launch_configuration
 
-  lt_name         = coalesce(var.lt_name, var.name)
-  launch_template = var.create_lt ? aws_launch_template.this[0].name : var.launch_template
+  lt_name                 = coalesce(var.lt_name, var.name)
+  launch_template         = var.create_lt ? aws_launch_template.this[0].name : var.launch_template
+  launch_template_version = var.create_lt && var.lt_version == null ? aws_launch_template.this[0].latest_version : var.lt_version
 
   tags = concat(
     [
       {
-        "key"                 = "Name"
-        "value"               = var.name
-        "propagate_at_launch" = true
+        key                 = "Name"
+        value               = var.name
+        propagate_at_launch = var.propagate_name
       },
     ],
     var.tags,
@@ -22,9 +23,9 @@ resource "null_resource" "tags_as_list_of_maps" {
   count = length(keys(var.tags_as_map))
 
   triggers = {
-    "key"                 = keys(var.tags_as_map)[count.index]
-    "value"               = values(var.tags_as_map)[count.index]
-    "propagate_at_launch" = true
+    key                 = keys(var.tags_as_map)[count.index]
+    value               = values(var.tags_as_map)[count.index]
+    propagate_at_launch = true
   }
 }
 
@@ -319,7 +320,7 @@ resource "aws_autoscaling_group" "this" {
 
     content {
       name    = local.launch_template
-      version = var.lt_version
+      version = local.launch_template_version
     }
   }
 
@@ -398,7 +399,7 @@ resource "aws_autoscaling_group" "this" {
       launch_template {
         launch_template_specification {
           launch_template_name = local.launch_template
-          version              = var.lt_version
+          version              = local.launch_template_version
         }
 
         dynamic "override" {
@@ -428,4 +429,24 @@ resource "aws_autoscaling_group" "this" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+################################################################################
+# Autoscaling group schedule
+################################################################################
+resource "aws_autoscaling_schedule" "this" {
+  for_each = var.create_asg && var.create_schedule ? var.schedules : {}
+
+  scheduled_action_name  = each.key
+  autoscaling_group_name = aws_autoscaling_group.this[0].name
+
+  min_size         = lookup(each.value, "min_size", null)
+  max_size         = lookup(each.value, "max_size", null)
+  desired_capacity = lookup(each.value, "desired_capacity", null)
+  start_time       = lookup(each.value, "start_time", null)
+  end_time         = lookup(each.value, "end_time", null)
+
+  # [Minute] [Hour] [Day_of_Month] [Month_of_Year] [Day_of_Week]
+  # Cron examples: https://crontab.guru/examples.html
+  recurrence = lookup(each.value, "recurrence", null)
 }

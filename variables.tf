@@ -217,6 +217,12 @@ variable "tags_as_map" {
   default     = {}
 }
 
+variable "propagate_name" {
+  description = "Determines whether to propagate the ASG Name tag or not"
+  type        = bool
+  default     = true
+}
+
 ################################################################################
 # Common - launch configuration or launch template
 ################################################################################
@@ -497,4 +503,20 @@ variable "tag_specifications" {
   description = "(LT) The tags to apply to the resources during launch"
   type        = list(any)
   default     = []
+}
+
+################################################################################
+# Autoscaling group schedule
+################################################################################
+
+variable "create_schedule" {
+  description = "Determines whether to create autoscaling group schedule or not"
+  type        = bool
+  default     = true
+}
+
+variable "schedules" {
+  description = "Map of autoscaling group schedule to create"
+  type        = map(any)
+  default     = {}
 }

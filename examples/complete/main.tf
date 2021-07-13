@@ -43,7 +43,7 @@ locals {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 2"
+  version = "~> 3.0"
 
   name = local.name
   cidr = "10.99.0.0/18"
@@ -60,7 +60,7 @@ module "vpc" {
 
 module "asg_sg" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "~> 3"
+  version = "~> 4.0"
 
   name        = local.name
   description = "A security group"
@@ -69,7 +69,7 @@ module "asg_sg" {
   computed_ingress_with_source_security_group_id = [
     {
       rule                     = "http-80-tcp"
-      source_security_group_id = module.alb_http_sg.this_security_group_id
+      source_security_group_id = module.alb_http_sg.security_group_id
     }
   ]
   number_of_computed_ingress_with_source_security_group_id = 1
@@ -132,7 +132,7 @@ resource "aws_iam_role" "ssm" {
 
 module "alb_http_sg" {
   source  = "terraform-aws-modules/security-group/aws//modules/http-80"
-  version = "~> 3"
+  version = "~> 4.0"
 
   name        = "${local.name}-alb-http"
   vpc_id      = module.vpc.vpc_id
@@ -145,13 +145,13 @@ module "alb_http_sg" {
 
 module "alb" {
   source  = "terraform-aws-modules/alb/aws"
-  version = "~> 5"
+  version = "~> 6.0"
 
   name = local.name
 
   vpc_id          = module.vpc.vpc_id
   subnets         = module.vpc.public_subnets
-  security_groups = [module.alb_http_sg.this_security_group_id]
+  security_groups = [module.alb_http_sg.security_group_id]
 
   http_tcp_listeners = [
     {
@@ -409,7 +409,7 @@ module "complete_lt" {
 
   iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
   # # Security group is set on the ENIs below
-  # security_groups          = [module.asg_sg.this_security_group_id]
+  # security_groups          = [module.asg_sg.security_group_id]
 
   target_group_arns = module.alb.target_group_arns
 
@@ -475,13 +475,13 @@ module "complete_lt" {
       delete_on_termination = true
       description           = "eth0"
       device_index          = 0
-      security_groups       = [module.asg_sg.this_security_group_id]
+      security_groups       = [module.asg_sg.security_group_id]
     },
     {
       delete_on_termination = true
       description           = "eth1"
       device_index          = 1
-      security_groups       = [module.asg_sg.this_security_group_id]
+      security_groups       = [module.asg_sg.security_group_id]
     }
   ]
 
@@ -506,6 +506,31 @@ module "complete_lt" {
 
   tags        = local.tags
   tags_as_map = local.tags_as_map
+
+  # Autoscaling Schedule
+  schedules = {
+    night = {
+      min_size         = 0
+      max_size         = 0
+      desired_capacity = 0
+      recurrence       = "0 18 * * 1-5" # Mon-Fri in the evening
+    }
+
+    morning = {
+      min_size         = 0
+      max_size         = 1
+      desired_capacity = 1
+      recurrence       = "0 7 * * 1-5" # Mon-Fri in the morning
+    }
+
+    go-offline-to-celebrate-new-year = {
+      min_size         = 0
+      max_size         = 0
+      desired_capacity = 0
+      start_time       = "2031-12-31T10:00:00Z" # Should be in the future
+      end_time         = "2032-01-01T16:00:00Z"
+    }
+  }
 }
 
 # Launch configuration
@@ -563,7 +588,7 @@ module "complete_lc" {
   enable_monitoring = true
 
   iam_instance_profile_arn    = aws_iam_instance_profile.ssm.arn
-  security_groups             = [module.asg_sg.this_security_group_id]
+  security_groups             = [module.asg_sg.security_group_id]
   associate_public_ip_address = true
 
   spot_price        = "0.014"
