@@ -36,6 +36,11 @@ output "launch_template_latest_version" {
   value       = element(concat(aws_launch_template.this.*.latest_version, [""]), 0)
 }
 
+output "launch_template_name" {
+  description = "The name of the launch template"
+  value       = element(concat(aws_launch_template.this.*.name, [""]), 0)
+}
+
 ################################################################################
 # Autoscaling group
 ################################################################################
